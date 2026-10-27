@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=77,<81"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "m183-bruteforce-demo"
+version = "1.0.0"
+description = "Lokale Brute-Force-Lernumgebung mit SQLite und Argon2id"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["argon2-cffi==25.1.0"]
+
+[project.optional-dependencies]
+dev = ["pytest==8.4.2", "ruff==0.14.2"]
+
+[project.scripts]
+bruteforce-demo = "bruteforce_demo.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["bruteforce_demo*"]
+
+[tool.setuptools.package-data]
+bruteforce_demo = ["data/*.txt"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

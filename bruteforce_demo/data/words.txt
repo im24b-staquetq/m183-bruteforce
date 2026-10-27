@@ -1,0 +1,5 @@
+# Ausschliesslich erfundene Lernbeispiele, keine echten Zugangsdaten.
+lernwort
+schulmond
+testwolke
+lernwort
