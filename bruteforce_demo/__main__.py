@@ -1,3 +1,5 @@
+"""Geschützter Modulstart der CLI, auch beim Windows-spawn-Verfahren."""
+
 from bruteforce_demo.cli import main
 
 if __name__ == "__main__":

@@ -1,3 +1,5 @@
+"""Tests für CLI-Befehle, Live-Ausgabe und den Zustand über Programmneustarts hinweg."""
+
 import os
 import subprocess
 import sys
@@ -10,6 +12,11 @@ from bruteforce_demo.defenses.policy import configure, profile
 
 
 def test_cli_demo_and_missing_database(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Prüft Initialisierung, Fehlermeldungen, Angriff, Sperrprofil und Verwaltungsbefehle.
+
+    :param tmp_path: Leeres temporäres Verzeichnis für die neu zu erstellende Datenbank.
+    :param capsys: Erfasst Zusammenfassungen und Fehlermeldungen der CLI.
+    """
     path = tmp_path / "demo.db"
     args = ["--db", str(path)]
     assert main([*args, "attack", "mono"]) == 2
@@ -30,6 +37,13 @@ def test_cli_demo_and_missing_database(tmp_path: Path, capsys: pytest.CaptureFix
 def test_cli_other_attacks(
     db: Path, kind: str, username: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Prüft einen tatsächlichen Testpasswortfund über die Dictionary- oder Poly-CLI.
+
+    :param db: Unabhängige temporäre Demo-Datenbank.
+    :param kind: Parametrisierte Angriffsart.
+    :param username: Dazu passendes künstliches Testkonto.
+    :param capsys: Erfasst das ausdrücklich gekennzeichnete Demo-Ergebnis.
+    """
     assert (
         main(["--db", str(db), "attack", kind, "--username", username, "--variant", "insecure"])
         == 0
@@ -38,6 +52,10 @@ def test_cli_other_attacks(
 
 
 def test_wait_state_survives_program_restart(db: Path) -> None:
+    """Prüft die gespeicherte Wartezeit durch einen zweiten, eigenständigen Python-Prozess.
+
+    :param db: Von beiden Programmstarts verwendete temporäre Demo-Datenbank.
+    """
     configure(db, profile("fixed", fixed_seconds=3600))
     args = ["--db", str(db), "attack", "mono", "--max-calls", "1"]
     assert main(args) == 0
@@ -62,6 +80,13 @@ def test_wait_state_survives_program_restart(db: Path) -> None:
 def test_live_display_for_all_attacks(
     db: Path, kind: str, username: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Prüft Live-Tabellenkopf, Erfolgszeile und Zusammenfassung für alle vier Angriffsarten.
+
+    :param db: Unabhängige temporäre Demo-Datenbank.
+    :param kind: Parametrisierte Angriffsart einschliesslich echter Workerprozesse.
+    :param username: Dazu passendes künstliches Testkonto.
+    :param capsys: Erfasst die im Elternprozess erzeugte Terminalausgabe.
+    """
     assert (
         main(
             [
@@ -87,6 +112,11 @@ def test_live_display_for_all_attacks(
 def test_live_display_shows_lock_and_remaining_wait(
     db: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Prüft die sichtbare Sperrmeldung mit Restwartezeit und unveränderten Prüfungszählern.
+
+    :param db: Unabhängige temporäre Demo-Datenbank.
+    :param capsys: Erfasst Live-Zeilen und abschliessende Zusammenfassung.
+    """
     configure(db, profile("lockout", lock_seconds=3600))
     assert main(["--db", str(db), "attack", "mono", "--max-calls", "8", "--live"]) == 0
     output = capsys.readouterr().out
@@ -96,6 +126,11 @@ def test_live_display_shows_lock_and_remaining_wait(
 
 
 def test_live_display_is_opt_in(db: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Prüft, dass ohne --live keine Kandidatentabelle oder einzelnen Testkandidaten erscheinen.
+
+    :param db: Unabhängige temporäre Demo-Datenbank.
+    :param capsys: Erfasst die Ausgabe eines Angriffs ohne Live-Option.
+    """
     assert main(["--db", str(db), "attack", "mono", "--max-calls", "1"]) == 0
     output = capsys.readouterr().out
     assert "DEMO-LIVE" not in output and "'0000'" not in output

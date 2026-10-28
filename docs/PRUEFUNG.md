@@ -109,3 +109,26 @@ Migration oder stillschweigende Löschung vorhandener Datenbanken.
   acht zeigte fünf Prüfungen und drei blockierte Aufrufe inklusive Restwartezeit.
 - Es wurde keine künstliche Verzögerung eingebaut. Live-Ausgaben verursachen
   zusätzlichen Ausgabeaufwand; Laufzeitvergleiche deshalb ohne `--live` durchführen.
+
+## Ergänzung: wichtigste BZZ-Anpassungen am 28. Oktober 2026
+
+- Anwendungsklassen besitzen jetzt dokumentierte Properties mit internen Attributen;
+  die Zähler werden über `record` und `merge` geändert. Die Profilkonfiguration wird
+  mit denselben JSON-Schlüsseln wie zuvor gespeichert.
+- Klassen und Funktionen im Anwendungscode sind dokumentiert. Ein gemeinsamer
+  Transaktions-Kontext ersetzt die von Pylint beanstandete kombinierte with-Schreibweise.
+- Vollständiger Testlauf: **71 passed in 15.15s**, einschliesslich echter Windows-Worker.
+- Ruff-Linting und die zusätzliche Prüfung auf fehlende Klassen-/Funktionsdocstrings
+  im Anwendungscode sind fehlerfrei.
+- Gezielter Pylint-Lauf mit `--persistent=n bruteforce_demo tests`: **9.40/10**.
+  Es bleiben unter anderem fehlende Beschreibungen einzelner Tests und Hinweise auf
+  umfangreiche Funktionen. Die Punktzahl ist keine Bestätigung vollständiger BZZ-Konformität.
+
+### Restliche Docstrings ergänzt
+
+Die drei Testmodule, alle Testfunktionen und ihre verschachtelten Hilfsfunktionen
+sind nun ebenfalls dokumentiert. Ruff und Pylint melden für Anwendung und Tests keine
+fehlenden Docstrings mehr. Der vollständige gezielte Pylint-Lauf ergibt **9.83/10**;
+Ruff-Linting und Formatprüfung sind fehlerfrei. Ein AST-Vergleich mit dem bisherigen
+Stand bestätigt, dass nur Docstrings und Formatierung der drei Testdateien geändert
+wurden. Laufzeittests wurden für diese reine Dokumentationsänderung nicht erneut ausgeführt.

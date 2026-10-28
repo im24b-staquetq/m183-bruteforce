@@ -1,3 +1,10 @@
+"""Konstante Wartezeit nach einer falschen Passwortprüfung."""
+
+
 def fixed_delay(seconds: float) -> float:
-    """Nach jeder fehlgeschlagenen Prüfung dieselbe Wartezeit."""
+    """Liefert die feste Wartezeit aus dem bereits validierten Profil.
+
+    :param seconds: Konfigurierte positive Wartezeit in Sekunden.
+    :return: Unveränderte Wartezeit in Sekunden.
+    """
     return seconds

@@ -1,3 +1,5 @@
+"""Kommandozeilensteuerung für Verwaltung, lokale Angriffe und Demo-Ausgaben."""
+
 import argparse
 import getpass
 import sqlite3
@@ -20,6 +22,10 @@ from bruteforce_demo.defenses.policy import PROFILES, configure, load_policy, pr
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Erstellt Unterbefehle und Optionen der Demo.
+
+    :return: ArgumentParser für die ausschliesslich lokale Kommandozeile.
+    """
     parser = argparse.ArgumentParser(
         description="Lokale Brute-Force-Demo mit künstlichen Testkonten"
     )
@@ -78,6 +84,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def execute_attack(args: argparse.Namespace) -> None:
+    """Startet den gewählten Angriff und gibt seine Zusammenfassung aus.
+
+    :param args: Von build_parser gelesene Angriffsoptionen.
+    :raises ValueError: Bei ungültigen Limits, Zeichensätzen oder Suchräumen.
+    :raises OSError: Wenn beispielsweise die Testwortliste nicht gelesen werden kann.
+    :raises sqlite3.Error: Bei Fehlern der Login-Datenhaltung.
+    :raises RuntimeError: Wenn ein Worker nicht sauber beendet wurde.
+    """
     limits = Limits(args.max_calls, args.max_seconds)
     on_attempt = terminal_progress(args.username, args.kind, args.variant) if args.live else None
     if args.kind == "parallel":
@@ -118,6 +132,14 @@ def execute_attack(args: argparse.Namespace) -> None:
 
 
 def dispatch(args: argparse.Namespace) -> None:
+    """Führt genau einen eingelesenen Verwaltungs-, Login- oder Angriffsbefehl aus.
+
+    :param args: Von build_parser gelesener Unterbefehl mit Optionen.
+    :raises OSError: Bei fehlgeschlagenen Dateizugriffen.
+    :raises sqlite3.Error: Bei fehlgeschlagenen Datenbankoperationen.
+    :raises ValueError: Bei ungültigen Einstellungen.
+    :raises RuntimeError: Bei fehlgeschlagenen Workerprozessen.
+    """
     if args.command == "init":
         initialize(args.db)
         print("Künstliche Testkonten angelegt: pin, dictionary, poly. Schutzprofil: standard.")
@@ -138,7 +160,7 @@ def dispatch(args: argparse.Namespace) -> None:
         print("Demo-Zustände zurückgesetzt. Konten, Hashes und Schutzprofil beibehalten.")
     elif args.command == "status":
         with connect(args.db) as connection:
-            print(f"Geschütztes Profil: {load_policy(connection)}")
+            print(f"Geschütztes Profil: {load_policy(connection).to_dict()}")
             rows = connection.execute("SELECT * FROM login_state ORDER BY username, variant")
             for row in rows:
                 print(dict(row))
@@ -170,6 +192,12 @@ def dispatch(args: argparse.Namespace) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Liest CLI-Argumente und übersetzt erwartete Fehler in verständliche Ausgaben.
+
+    :param argv: Eigene Argumentliste; None verwendet die Argumente des Programmstarts.
+    :return: Exitcode 0 bei Ausführung, 2 bei Fehlern oder 130 bei Ctrl+C.
+    :raises SystemExit: Wenn argparse Hilfe ausgibt oder ungültige Argumente erkennt.
+    """
     args = build_parser().parse_args(argv)
     try:
         dispatch(args)

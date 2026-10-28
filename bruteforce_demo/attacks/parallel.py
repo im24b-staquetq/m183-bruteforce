@@ -14,7 +14,14 @@ from bruteforce_demo.models import Variant
 
 
 def split_ranges(start: int, stop: int, workers: int) -> list[tuple[int, int]]:
-    """Halboffene Intervalle [start, stop), Grössen unterscheiden sich höchstens um eins."""
+    """Teilt [start, stop) lückenlos in disjunkte, möglichst gleich grosse Intervalle.
+
+    :param start: Inklusive Untergrenze, mindestens 0.
+    :param stop: Exklusive Obergrenze, grösser als start.
+    :param workers: Gewünschte Workerzahl zwischen 1 und 16.
+    :return: Intervallpaare; bei wenig Kandidaten werden weniger Worker verwendet.
+    :raises ValueError: Bei ungültigem Bereich oder ungültiger Workerzahl.
+    """
     if start < 0 or stop <= start or not 1 <= workers <= 16:
         raise ValueError("Ungültiger Suchraum oder Workerzahl (1–16).")
     count = min(workers, stop - start)
@@ -41,6 +48,22 @@ def _worker(
     sender: Connection,
     report_progress: bool,
 ) -> None:
+    """Prüft seinen Zahlenbereich über den Login und meldet das Ergebnis an den Elternprozess.
+
+    :param path: Gemeinsame Demo-Datenbank.
+    :param username: Künstliches Zielkonto.
+    :param variant: Login-Variante.
+    :param interval: Eigenes halboffenes Zahlenintervall.
+    :param length: Feste Länge der Kandidaten einschliesslich führender Nullen.
+    :param limits: Gemeinsame Laufgrenzen.
+    :param deadline: Absoluter Endzeitpunkt der monotonen Uhr.
+    :param stop_event: Gemeinsames Signal für Erfolg oder Abbruch.
+    :param reserved: Mit Lock geschützter gemeinsamer Aufrufzähler.
+    :param sender: Pipe zum Elternprozess, die hier geschlossen wird.
+    :param report_progress: Sendet zusätzlich jedes abgeschlossene Versuchsergebnis.
+    :raises OSError: Bei fehlgeschlagener Pipe-Kommunikation.
+    :raises sqlite3.Error: Wenn die Login-Datenhaltung scheitert.
+    """
     # Ctrl+C behandelt der Elternprozess; Worker beenden ihre aktuelle Transaktion.
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     summary = AttackSummary("parallel", variant)
@@ -79,6 +102,22 @@ def run_parallel(
     workers: int = 2,
     on_attempt: ProgressCallback | None = None,
 ) -> AttackSummary:
+    """Startet Windows-kompatible Worker und sammelt ihre Ergebnisse im Elternprozess.
+
+    :param path: Gemeinsame Demo-Datenbank.
+    :param username: Künstliches Zielkonto.
+    :param variant: Login-Variante.
+    :param limits: Globales Aufruflimit und Zeitlimit einschliesslich Workerstart.
+    :param length: Feste numerische Kandidatenlänge von 1 bis 10.
+    :param start: Inklusive Untergrenze des Suchraums.
+    :param stop: Exklusive Obergrenze des Suchraums.
+    :param workers: Anzahl der Worker, höchstens 16.
+    :param on_attempt: Optionale Ausgabe der Versuchsergebnisse im Elternprozess.
+    :return: Zusammengeführte Statistik; SIGINT führt zu einem geordneten Abbruch.
+    :raises ValueError: Bei ungültigen Suchraumparametern oder Aufruf ausserhalb des Hauptthreads.
+    :raises RuntimeError: Wenn ein Worker ohne gültiges Ergebnis oder mit Fehler endet.
+    :raises OSError: Wenn Prozessstart oder Pipe-Kommunikation scheitern.
+    """
     if not 1 <= length <= 10 or stop > 10**length:
         raise ValueError("Länge muss 1–10 sein; Bereich muss in diese Länge passen.")
     ranges = split_ranges(start, stop, workers)
@@ -93,7 +132,12 @@ def run_parallel(
     receivers: list[Connection] = []
     interrupted = False
 
-    def handle_interrupt(signum: int, frame: object) -> None:
+    def handle_interrupt(_signum: int, _frame: object) -> None:
+        """Setzt das Stop-Event; Signalnummer und Stackframe werden nicht benötigt.
+
+        :param _signum: Von Python übergebene Signalnummer.
+        :param _frame: Von Python übergebener Stackframe.
+        """
         nonlocal interrupted
         interrupted = True
         stop_event.set()
@@ -143,12 +187,7 @@ def run_parallel(
                     if on_attempt is not None:
                         on_attempt(candidate, result, progress)
                     continue
-                part = message
-                summary.calls += part.calls
-                summary.checked += part.checked
-                summary.blocked += part.blocked
-                if part.found_password is not None:
-                    summary.found_password = part.found_password
+                summary.merge(message)
                 pending.remove(receiver)
     finally:
         stop_event.set()

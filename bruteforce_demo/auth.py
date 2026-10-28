@@ -6,7 +6,7 @@ from pathlib import Path
 
 from argon2.exceptions import VerifyMismatchError
 
-from bruteforce_demo.database import PASSWORD_HASHER, connect
+from bruteforce_demo.database import PASSWORD_HASHER, transaction
 from bruteforce_demo.defenses.audit import announce_alarm, record_event
 from bruteforce_demo.defenses.lockout import should_lock
 from bruteforce_demo.defenses.policy import Policy, load_policy
@@ -23,13 +23,21 @@ def login(
 ) -> LoginResult:
     """Atomare Zustandsprüfung, Hashprüfung und Aktualisierung pro Aufruf.
 
-    Der Zeitgeber ist für Tests injizierbar. Angriffs-CLI und Worker verwenden
-    ausschliesslich die echte Zeit und die gespeicherte Konfiguration.
+    :param path: Vorhandene Demo-Datenbank.
+    :param username: Name des künstlichen Testkontos.
+    :param password: Kandidat für die Anmeldung; wird niemals protokolliert.
+    :param variant: 'insecure' oder 'protected'.
+    :param clock: Unix-Zeitquelle; ausschliesslich für Tests austauschbar.
+    :return: LoginResult mit Status, Prüfmarkierung und verbleibender Wartezeit.
+    :raises ValueError: Bei unbekannter Variante oder ungültiger Schutzkonfiguration.
+    :raises sqlite3.Error: Wenn Datenbankzugriff oder Transaktion scheitern.
+    :raises argon2.exceptions.VerificationError: Bei fehlerhaften gespeicherten Hashes;
+        ein bloss falsches Passwort wird dagegen als LoginResult zurückgegeben.
     """
     if variant not in {"insecure", "protected"}:
         raise ValueError("Unbekannte Login-Variante.")
     alarm = False
-    with connect(path) as connection, connection:
+    with transaction(path) as connection:
         connection.execute("BEGIN IMMEDIATE")
         policy = load_policy(connection) if variant == "protected" else Policy(audit=True)
         now = clock()

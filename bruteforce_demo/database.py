@@ -42,7 +42,12 @@ CREATE TABLE audit_events (
 
 @contextmanager
 def connect(path: Path) -> Iterator[sqlite3.Connection]:
-    """Öffnet nur vorhandene Dateien; jeder Aufrufer erhält eine eigene Verbindung."""
+    """Öffnet eine vorhandene SQLite-Datei und schliesst die Verbindung zuverlässig.
+
+    :param path: Pfad einer vorhandenen Demo-Datenbank.
+    :yield: Eigene Verbindung mit Zugriff auf Spalten über sqlite3.Row.
+    :raises sqlite3.Error: Wenn Öffnen oder Konfiguration scheitern.
+    """
     connection = sqlite3.connect(path.resolve().as_uri() + "?mode=rw", uri=True, timeout=10)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
@@ -52,12 +57,31 @@ def connect(path: Path) -> Iterator[sqlite3.Connection]:
         connection.close()
 
 
+@contextmanager
+def transaction(path: Path) -> Iterator[sqlite3.Connection]:
+    """Verbindet Ressourcenfreigabe mit Commit bzw. Rollback beim Verlassen.
+
+    :param path: Pfad einer vorhandenen Demo-Datenbank.
+    :yield: Verbindung, auf der der Aufrufer bei Bedarf BEGIN IMMEDIATE ausführt.
+    :raises sqlite3.Error: Wenn Öffnen oder Bestätigen der Transaktion scheitern.
+    """
+    with connect(path) as connection:
+        with connection:
+            yield connection
+
+
 def initialize(path: Path) -> None:
-    """Erstellt Testdaten; eine vorhandene Datei wird niemals überschrieben."""
+    """Erstellt Schema, künstliche Konten und das Standardprofil in einer neuen Datei.
+
+    :param path: Gewünschter Pfad der neuen Demo-Datenbank.
+    :raises FileExistsError: Wenn die Datei bereits existiert; sie bleibt erhalten.
+    :raises OSError: Wenn die Datei nicht angelegt werden kann.
+    :raises sqlite3.Error: Wenn Schema oder Testdaten nicht gespeichert werden können.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("xb"):
         pass
-    with connect(path) as connection, connection:
+    with transaction(path) as connection:
         connection.executescript(SCHEMA)
         connection.executemany(
             "INSERT INTO users VALUES (?, ?)",
@@ -70,8 +94,13 @@ def initialize(path: Path) -> None:
 
 
 def reset_states(path: Path, *, clear_events: bool = False) -> None:
-    """Expliziter Reset: behält Konten, Hashes und Konfiguration bei."""
-    with connect(path) as connection, connection:
+    """Setzt ausdrücklich Fehlversuchszustände zurück; behält Konten und Profil.
+
+    :param path: Vorhandene Demo-Datenbank.
+    :param clear_events: Löscht zusätzlich Audit-Ereignisse, wenn True.
+    :raises sqlite3.Error: Wenn Öffnen oder Transaktion scheitern.
+    """
+    with transaction(path) as connection:
         connection.execute("BEGIN IMMEDIATE")
         connection.execute("DELETE FROM login_state")
         if clear_events:
@@ -79,6 +108,14 @@ def reset_states(path: Path, *, clear_events: bool = False) -> None:
 
 
 def read_events(path: Path, limit: int = 50) -> list[sqlite3.Row]:
+    """Liest die letzten Audit-Ereignisse in zeitlicher Reihenfolge.
+
+    :param path: Vorhandene Demo-Datenbank.
+    :param limit: Anzahl der letzten Ereignisse zwischen 1 und 1000.
+    :return: Ereigniszeilen, älteste zuerst; gegebenenfalls eine leere Liste.
+    :raises ValueError: Bei ungültigem Limit.
+    :raises sqlite3.Error: Wenn Öffnen oder Abfrage scheitern.
+    """
     if not 1 <= limit <= 1000:
         raise ValueError("Ereignislimit muss zwischen 1 und 1000 liegen.")
     with connect(path) as connection:

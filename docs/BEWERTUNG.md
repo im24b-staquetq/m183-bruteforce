@@ -20,6 +20,12 @@ Pflichtnachweise und die genaue Auslegung mit der Lehrperson.
 Die private Notiz und echte Rainbow-Tables sind nicht implementiert. In der
 Dokumentation werden deshalb keine entsprechenden Funktionen als erledigt bewertet.
 
+Die wichtigsten BZZ-Anpassungen sind umgesetzt: Klassen- und Funktionsdocstrings im
+Anwendungscode, interne Attribute mit führendem Unterstrich und Zugriff über Properties.
+Zähler werden über Methoden verändert. Der Paketname `bruteforce_demo` mit Unterstrich
+bleibt vorerst bestehen; auch die Auslegung der Main-Guard-Regel für Bibliotheksmodule
+ist mit der Lehrperson zu klären. Eine vollständige BZZ-Konformität wird nicht behauptet.
+
 ## Vorschlag für das Zweierteam
 
 | Schritt | Person A | Person B | Gemeinsam |
