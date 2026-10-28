@@ -25,13 +25,16 @@ Bei einer Wiederholung stattdessen `reset` verwenden.
 
 ## 2. Unsicher gegen geschützt vergleichen
 
+`--live` zeigt Testkandidaten, Status und Zähler während des Angriffs.
+Ohne diese Option erscheint nur die Zusammenfassung. Es gibt keine künstliche Verlangsamung.
+
 ```powershell
 # Ohne Begrenzung: 0007 wird nach acht Prüfungen gefunden.
-.\.venv\Scripts\bruteforce-demo.exe attack mono --variant insecure
+.\.venv\Scripts\bruteforce-demo.exe attack mono --variant insecure --live
 
 # Mit Schutz: Schnelle Folgeversuche werden vor der Passwortprüfung blockiert.
 .\.venv\Scripts\bruteforce-demo.exe configure --profile standard
-.\.venv\Scripts\bruteforce-demo.exe attack mono --variant protected
+.\.venv\Scripts\bruteforce-demo.exe attack mono --variant protected --live
 ```
 
 Das Standardprofil kombiniert progressive Wartezeit, Sperre nach fünf falschen Prüfungen und Logging.
@@ -41,9 +44,9 @@ Die genaue Zahl blockierter Aufrufe hängt vom zeitlichen Ablauf ab.
 ## 3. Weitere Angriffe zeigen
 
 ```powershell
-.\.venv\Scripts\bruteforce-demo.exe attack dictionary --username dictionary --variant insecure
-.\.venv\Scripts\bruteforce-demo.exe attack poly --username poly --variant insecure
-.\.venv\Scripts\bruteforce-demo.exe attack parallel --username pin --variant insecure --workers 2
+.\.venv\Scripts\bruteforce-demo.exe attack dictionary --username dictionary --variant insecure --live
+.\.venv\Scripts\bruteforce-demo.exe attack poly --username poly --variant insecure --live
+.\.venv\Scripts\bruteforce-demo.exe attack parallel --username pin --variant insecure --workers 2 --live
 ```
 
 - **Dictionary:** Künstliche Wortliste mit Grossschreibung und Ziffernvarianten.

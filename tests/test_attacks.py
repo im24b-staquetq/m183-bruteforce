@@ -7,7 +7,7 @@ import pytest
 from conftest import FakeClock
 
 from bruteforce_demo.attacks import parallel as parallel_module
-from bruteforce_demo.attacks.common import Limits, print_summary, run_attack
+from bruteforce_demo.attacks.common import AttackSummary, Limits, print_summary, run_attack
 from bruteforce_demo.attacks.dictionary import dictionary_candidates, read_words
 from bruteforce_demo.attacks.mono import numeric_candidates
 from bruteforce_demo.attacks.parallel import run_parallel, split_ranges
@@ -130,11 +130,32 @@ def test_invalid_limits(calls: int, seconds: float) -> None:
         Limits(calls, seconds)
 
 
-def test_spawn_workers_share_lock_and_global_call_limit(db: Path) -> None:
+@pytest.mark.parametrize("live", [False, True])
+def test_spawn_workers_share_lock_and_global_call_limit(db: Path, live: bool) -> None:
     configure(db, profile("lockout", lock_seconds=3600))
-    summary = run_parallel(db, "pin", "protected", Limits(12, 15), start=100, stop=140, workers=3)
+    updates = []
+
+    def capture(candidate: str, result: LoginResult, progress: AttackSummary) -> None:
+        updates.append((candidate, progress.calls, progress.checked, progress.blocked))
+
+    summary = run_parallel(
+        db,
+        "pin",
+        "protected",
+        Limits(12, 15),
+        start=100,
+        stop=140,
+        workers=3,
+        on_attempt=capture if live else None,
+    )
     assert (summary.calls, summary.checked, summary.blocked) == (12, 5, 7)
     assert summary.outcome == "Aufruflimit erreicht"
+    if live:
+        assert len(updates) == len({row[0] for row in updates}) == 12
+        assert [row[1] for row in updates] == list(range(1, 13))
+        assert updates[-1][1:] == (12, 5, 7)
+    else:
+        assert not updates
     with connect(db) as connection:
         failures = connection.execute("SELECT failures FROM login_state").fetchone()[0]
     assert failures == 5
@@ -172,3 +193,32 @@ def test_parallel_ctrl_c_collects_results_and_restores_signal(
     assert summary.outcome == "Mit Ctrl+C abgebrochen"
     assert summary.calls == summary.checked
     assert signal.getsignal(signal.SIGINT) is previous_handler
+
+
+def test_live_updates_distinguish_checks_and_blocked_calls() -> None:
+    results = iter(
+        [
+            LoginResult("invalid", True),
+            LoginResult("waiting", False, 1.5),
+            LoginResult("success", True),
+        ]
+    )
+    updates = []
+
+    def capture(candidate: str, result: LoginResult, summary: AttackSummary) -> None:
+        updates.append((candidate, result.status, summary.calls, summary.checked, summary.blocked))
+
+    summary = run_attack(
+        ["0000", "0001", "0007", "0008"],
+        lambda _: next(results),
+        "mono",
+        "protected",
+        Limits(),
+        on_attempt=capture,
+    )
+    assert updates == [
+        ("0000", "invalid", 1, 1, 0),
+        ("0001", "waiting", 2, 1, 1),
+        ("0007", "success", 3, 2, 1),
+    ]
+    assert summary.found_password == "0007"

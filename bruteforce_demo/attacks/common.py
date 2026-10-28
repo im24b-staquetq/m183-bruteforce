@@ -33,6 +33,9 @@ class AttackSummary:
         self.blocked += int(result.blocked)
 
 
+ProgressCallback = Callable[[str, LoginResult, AttackSummary], None]
+
+
 def run_attack(
     candidates: Iterable[str],
     attempt: Callable[[str], LoginResult],
@@ -40,6 +43,8 @@ def run_attack(
     variant: str,
     limits: Limits,
     clock: Callable[[], float] = time.monotonic,
+    *,
+    on_attempt: ProgressCallback | None = None,
 ) -> AttackSummary:
     summary = AttackSummary(kind, variant)
     started = clock()
@@ -61,6 +66,8 @@ def run_attack(
                 break
             result = attempt(candidate)
             summary.record(result)
+            if on_attempt is not None:
+                on_attempt(candidate, result, summary)
             if result.status == "success":
                 summary.found_password = candidate
                 summary.outcome = "Testpasswort gefunden"

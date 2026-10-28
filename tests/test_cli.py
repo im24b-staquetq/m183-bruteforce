@@ -53,3 +53,49 @@ def test_wait_state_survives_program_restart(db: Path) -> None:
     assert result.returncode == 0
     assert "Passwortprüfungen: 0" in result.stdout
     assert "Blockierte Versuche: 1" in result.stdout
+
+
+@pytest.mark.parametrize(
+    "kind,username",
+    [("mono", "pin"), ("dictionary", "dictionary"), ("poly", "poly"), ("parallel", "pin")],
+)
+def test_live_display_for_all_attacks(
+    db: Path, kind: str, username: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert (
+        main(
+            [
+                "--db",
+                str(db),
+                "attack",
+                kind,
+                "--username",
+                username,
+                "--variant",
+                "insecure",
+                "--live",
+            ]
+        )
+        == 0
+    )
+    output = capsys.readouterr().out
+    assert f"DEMO-LIVE | Konto: {username}" in output
+    assert "Testkandidat" in output and "GEFUNDEN" in output
+    assert "DEMO-ERGEBNIS" in output
+
+
+def test_live_display_shows_lock_and_remaining_wait(
+    db: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    configure(db, profile("lockout", lock_seconds=3600))
+    assert main(["--db", str(db), "attack", "mono", "--max-calls", "8", "--live"]) == 0
+    output = capsys.readouterr().out
+    assert "gesperrt (" in output
+    assert "Passwortprüfungen: 5" in output and "Blockierte Versuche: 3" in output
+    assert "GEFUNDEN" not in output
+
+
+def test_live_display_is_opt_in(db: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["--db", str(db), "attack", "mono", "--max-calls", "1"]) == 0
+    output = capsys.readouterr().out
+    assert "DEMO-LIVE" not in output and "'0000'" not in output

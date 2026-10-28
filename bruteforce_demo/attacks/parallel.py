@@ -8,7 +8,7 @@ from multiprocessing.sharedctypes import Synchronized
 from multiprocessing.synchronize import Event
 from pathlib import Path
 
-from bruteforce_demo.attacks.common import AttackSummary, Limits
+from bruteforce_demo.attacks.common import AttackSummary, Limits, ProgressCallback
 from bruteforce_demo.auth import login
 from bruteforce_demo.models import Variant
 
@@ -39,6 +39,7 @@ def _worker(
     stop_event: Event,
     reserved: Synchronized,
     sender: Connection,
+    report_progress: bool,
 ) -> None:
     # Ctrl+C behandelt der Elternprozess; Worker beenden ihre aktuelle Transaktion.
     signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -57,6 +58,9 @@ def _worker(
             if result.status == "success":
                 summary.found_password = candidate
                 stop_event.set()
+            if report_progress:
+                sender.send((candidate, result))
+            if summary.found_password is not None:
                 break
     finally:
         sender.send(summary)
@@ -73,6 +77,7 @@ def run_parallel(
     start: int = 0,
     stop: int = 16,
     workers: int = 2,
+    on_attempt: ProgressCallback | None = None,
 ) -> AttackSummary:
     if not 1 <= length <= 10 or stop > 10**length:
         raise ValueError("Länge muss 1–10 sein; Bereich muss in diese Länge passen.")
@@ -81,6 +86,7 @@ def run_parallel(
     stop_event = context.Event()
     reserved = context.Value("q", 0)
     summary = AttackSummary("parallel", variant)
+    progress = AttackSummary("parallel", variant)
     started = time.monotonic()
     deadline = started + limits.max_seconds
     processes: list[mp.Process] = []
@@ -111,6 +117,7 @@ def run_parallel(
                     stop_event,
                     reserved,
                     sender,
+                    on_attempt is not None,
                 ),
             )
             process.start()
@@ -127,9 +134,16 @@ def run_parallel(
                 continue
             for receiver in ready:
                 try:
-                    part = receiver.recv()
+                    message = receiver.recv()
                 except EOFError as error:
                     raise RuntimeError("Ein Worker endete ohne Ergebnis.") from error
+                if not isinstance(message, AttackSummary):
+                    candidate, result = message
+                    progress.record(result)
+                    if on_attempt is not None:
+                        on_attempt(candidate, result, progress)
+                    continue
+                part = message
                 summary.calls += part.calls
                 summary.checked += part.checked
                 summary.blocked += part.blocked

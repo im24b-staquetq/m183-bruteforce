@@ -94,3 +94,18 @@ zum künstlichen Testpasswort. Die dabei erzeugte `runtime/basis.db` gehört zum
 Schema und soll nicht für die fertige Demo verwendet werden. Verwendet `init` mit
 dem noch freien Standardpfad oder einem neuen Dateinamen. Es gibt keine automatische
 Migration oder stillschweigende Löschung vorhandener Datenbanken.
+
+## Ergänzung: Terminalanzeige am 28. Oktober 2026
+
+- `attack ... --live` ergänzt eine Tabelle mit künstlichem Testkandidaten, Status,
+  Aufrufen, Passwortprüfungen und blockierten Aufrufen. Ohne die Option bleibt die
+  bisherige Ausgabe erhalten. Audit-Logs enthalten weiterhin keine Passwortkandidaten.
+- Vollständiger Testlauf nach der Erweiterung: **71 passed in 8.19s**.
+  Die zusätzlichen Tests prüfen alle vier Angriffe mit Live-Anzeige, Sperrfeedback,
+  die Ausgabe ohne `--live` und korrekte Fortschrittszähler mit echten Workerprozessen.
+- Ruff: **All checks passed!**, **23 files already formatted**.
+- CLI-Ausgabe mit einer separaten Demo-Datenbank ausgeführt: Mono ohne Schutz
+  zeigte acht Prüfungen bis zum Fund; Parallel mit Sperrschwelle fünf und Aufruflimit
+  acht zeigte fünf Prüfungen und drei blockierte Aufrufe inklusive Restwartezeit.
+- Es wurde keine künstliche Verzögerung eingebaut. Live-Ausgaben verursachen
+  zusätzlichen Ausgabeaufwand; Laufzeitvergleiche deshalb ohne `--live` durchführen.

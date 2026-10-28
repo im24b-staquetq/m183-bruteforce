@@ -50,6 +50,7 @@ bruteforce_demo/
   auth.py                    einzige Login-Schnittstelle und Transaktionsablauf
   attacks/
     common.py                Limits, serieller Ablauf, Ergebnisstatistik
+    terminal.py              optionale Live-Anzeige mit --live
     mono.py                  numerische Kandidaten
     dictionary.py            Wortliste und feste Varianten
     poly.py                  gemischter Zeichensatz, lazy Kandidaten
@@ -323,8 +324,11 @@ allein verhindert es keinen Angriff.
 Die Zusammenfassung nennt Angriffsart, Zielvariante, abgeschlossene Login-Aufrufe,
 tatsächliche Passwortprüfungen, blockierte Aufrufe, Laufzeit und Ergebnis.
 Ein blockierter Aufruf ist keine weitere Passwortprüfung. Ein unbekanntes Konto
-ist ebenfalls keine Hashprüfung, aber auch keine Sperre. Ein gefundenes Testpasswort
-erscheint ausschliesslich in der ausdrücklich bezeichneten `DEMO-ERGEBNIS`-Zeile.
+ist ebenfalls keine Hashprüfung, aber auch keine Sperre. Ohne `--live` erscheint ein
+gefundenes Testpasswort ausschliesslich in der `DEMO-ERGEBNIS`-Zeile. Mit `--live`
+zeigt eine als `DEMO-LIVE` gekennzeichnete Tabelle zusätzlich jeden abgeschlossenen
+Versuch: künstlicher Testkandidat, Status, Aufrufe, Prüfungen und blockierte Aufrufe.
+Die Anzeige wartet nicht künstlich; sie erzeugt keine Audit-Einträge.
 
 Alle Angriffe haben ein globales Aufruflimit (Standard 30) und ein Zeitlimit
 (Standard 10 s); beide sind positiv und konfigurierbar. Bei Parallel zählt eine
@@ -337,8 +341,9 @@ es ist keine garantierte harte Echtzeitgrenze.
 `spawn` startet frische Python-Prozesse und funktioniert unter Windows. Der
 `__main__`-Guard in `__main__.py` verhindert rekursive Prozessstarts beim Modulimport.
 Auch eigener Code, der `run_parallel` direkt startet, benötigt diesen Guard.
-Worker senden kleine Zusammenfassungen über Pipes; nur der Elternprozess gibt das
-Demo-Ergebnis aus. Ein gemeinsames Event beendet die übrigen Worker nach einem Fund.
+Worker senden kleine Zusammenfassungen über Pipes, bei `--live` zusätzlich die
+einzelnen Versuchsergebnisse. Nur der Elternprozess gibt Tabelle und Demo-Ergebnis
+aus. Ein gemeinsames Event beendet die übrigen Worker nach einem Fund.
 Bis zu `workers - 1` bereits begonnene Aufrufe können noch fertig werden. Die genaue
 Bearbeitungsreihenfolge ist parallel nicht deterministisch; die Aufteilung ist es.
 

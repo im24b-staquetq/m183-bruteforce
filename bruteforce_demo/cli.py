@@ -13,6 +13,7 @@ from bruteforce_demo.attacks.dictionary import dictionary_candidates, read_words
 from bruteforce_demo.attacks.mono import numeric_candidates
 from bruteforce_demo.attacks.parallel import run_parallel
 from bruteforce_demo.attacks.poly import make_charset, poly_candidates
+from bruteforce_demo.attacks.terminal import terminal_progress
 from bruteforce_demo.auth import login
 from bruteforce_demo.database import connect, initialize, read_events, reset_states
 from bruteforce_demo.defenses.policy import PROFILES, configure, load_policy, profile
@@ -56,6 +57,9 @@ def build_parser() -> argparse.ArgumentParser:
     attack.add_argument("--variant", choices=("insecure", "protected"), default="protected")
     attack.add_argument("--max-calls", type=int, default=30)
     attack.add_argument("--max-seconds", type=float, default=10)
+    attack.add_argument(
+        "--live", action="store_true", help="Künstliche Testkandidaten und Status live anzeigen"
+    )
     attack.add_argument("--min-length", type=int)
     attack.add_argument("--max-length", type=int)
     attack.add_argument(
@@ -75,6 +79,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def execute_attack(args: argparse.Namespace) -> None:
     limits = Limits(args.max_calls, args.max_seconds)
+    on_attempt = terminal_progress(args.username, args.kind, args.variant) if args.live else None
     if args.kind == "parallel":
         summary = run_parallel(
             args.db,
@@ -85,6 +90,7 @@ def execute_attack(args: argparse.Namespace) -> None:
             start=args.start,
             stop=args.stop,
             workers=args.workers,
+            on_attempt=on_attempt,
         )
     else:
         if args.kind == "mono":
@@ -106,6 +112,7 @@ def execute_attack(args: argparse.Namespace) -> None:
             args.kind,
             args.variant,
             limits,
+            on_attempt=on_attempt,
         )
     print_summary(summary)
 
